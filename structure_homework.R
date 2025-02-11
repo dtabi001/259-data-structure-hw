@@ -2,15 +2,17 @@
 #For full credit, provide answers for at least 8/11 questions
 
 #List names of students collaborating with: 
+# Derrian Tabilin
 
 ### SETUP: RUN THIS BEFORE STARTING ----------
 
-install.packages("rvest")
+#install.packages("rvest")
 
 #Load packages
 library(tidyverse)
 library(lubridate)
 library(rvest)
+library(forcats)
 
 # Scrape the data for the new rolling stone top 500 list
 url <- "https://stuarte.co/2021/2021-full-list-rolling-stones-top-500-songs-of-all-time-updated/"
@@ -38,6 +40,12 @@ load("rs_data.RData")
 # Why did some of the artist-song fail to match up?
 
 #ANSWER
+rs_joined_orig <- full_join(rs_new, rs_old, by = c("Artist", "Song"))
+view(rs_joined_orig)
+
+nrow(rs_joined_orig) 
+
+#there are NAs in the ranks and years, some are just in old year or new year and not both
 
 
 
@@ -50,6 +58,19 @@ load("rs_data.RData")
 # Make Rank and Year into integer variables for rs_old before binding them into rs_all
 
 #ANSWER
+rs_old <- rs_old %>%
+  mutate(Rank = as.integer(Rank),
+         Year = as.integer(Year),
+         Source = "Old")
+
+rs_new <- rs_new %>%
+  mutate(Rank = as.integer(Rank),
+         Year = as.integer(Year),
+         Source = "New")
+
+rs_all <- bind_rows(rs_old, rs_new)
+print(rs_all)
+
 
 
 ### Question 3 ----------
@@ -62,6 +83,23 @@ load("rs_data.RData")
 # Use both functions to make all artists/song lowercase and remove any extra spaces
 
 #ANSWER
+rs_all <- rs_all %>%
+  mutate(
+  Artist = Artist %>%
+    str_remove_all("\\bThe\\b") %>%
+    str_replace_all("&", "and") %>%
+    str_remove_all("[[:punct:]]") %>%
+    str_to_lower() %>%
+    str_trim(),
+  Song = Song %>%
+    str_remove_all("\\bThe\\b") %>%
+    str_replace_all("&", "and") %>%
+    str_remove_all("[[:punct:]]") %>%
+    str_to_lower() %>%
+    str_trim())
+
+rs_all
+
 
 
 ### Question 4 ----------
@@ -75,6 +113,21 @@ load("rs_data.RData")
 # in the new rs_joined compared to the original. Use nrow to check (there should be 799 rows)
 
 #ANSWER
+rs_old <- rs_all %>%
+  filter(Source == "Old")
+rs_old
+
+rs_new <- rs_all %>%
+  filter(Source == "New")
+rs_new
+
+rs_joined <- full_join(rs_old, rs_new, 
+                       by = c("Artist", "Song"),
+                       suffix= c("_Old", "_New"))
+rs_joined
+
+nrow(rs_joined)
+
 
 
 ### Question 5 ----------
@@ -88,6 +141,13 @@ load("rs_data.RData")
 # You should now be able to see how each song moved up/down in rankings between the two lists
 
 #ANSWER
+rs_joined <- rs_joined %>%
+  select(-c("Source_Old", "Source_New")) %>%
+  filter(!is.na(Rank_Old) & !is.na(Rank_New))
+  mutate(Rank_Change = Rank_Old - Rank_New) %>%
+  arrange(Rank_Change)
+rs_joined
+
 
 
 ### Question 6 ----------
@@ -99,6 +159,13 @@ load("rs_data.RData")
 # Which decade improved the most?
 
 #ANSWER
+rs_joined %>% 
+  mutate(
+    Decade = paste0(floor(Year_Old / 10) * 10, "s"),
+    Decade = factor(Decade)) %>%
+  group_by(Decade) %>%
+  summarize(rank_change = mean(Rank_Old), na.rm = TRUE)
+#the 1990's improved the most with 276 rank changes
 
 
 
@@ -109,7 +176,9 @@ load("rs_data.RData")
 # Do fct_count on the lumped factor with the prop argument to see the 
 # proportion of songs in each of the top three decades (vs. all the rest)
 
-#ANSWER
+#ANSWER ### SKIPPED ##
+rs_joined %>%
+  fct_count(Decade)
 
 
 
@@ -120,6 +189,14 @@ load("rs_data.RData")
 # Use parse_date_time to fix it
 
 #ANSWER
+top20 <- read_csv("top_20.csv")
+
+top20 <- top20 %>%
+  mutate(Release = as.character(Release)) %>%
+  mutate(Release = parse_date_time(Release, dmy))
+
+top20
+
 
 
 ### Question 9 --------
@@ -129,10 +206,13 @@ load("rs_data.RData")
 # overwrite top20 with the pivoted data (there should now be 20 rows!)
 
 #ANSWER
+top20 <- top20 %>% 
+  pivot_wider(names_from = Style, values_from = Value)
+top20
 
 
 
-### Question 10 ---------
+### Question 10 --------- ### ERRORS, SKIPPED ###
 
 # Merge in the data from rs_joined to top20 using left_join by artist and song
 # The results should be top20 (20 rows of data) with columns added from rs_joined
@@ -143,10 +223,26 @@ load("rs_data.RData")
 # Count the number of songs that were released in each season
 
 #ANSWER
+top20 <- top20 %>%
+  left_join(rs_joined, by = c("Artist", "Song"))
+
+top20 <- top20 %>% 
+  mutate(
+    Month = month(dmy(Release, label = TRUE, abbr = TRUE))) #Get an error that Month must be size 20 or 1, not 22
+
+top20 <- top20 %>%
+  mutate(
+    Season = case_when(
+      Month %>% in c("Dec", "Jan", "Feb") ~ "Winter",
+      Month %>% in c("March", "April", "May") ~ "Spring",
+      Month %>% in c("June", "July", "Aug") ~ "Summer",
+      Month %>% in c("Sept", "Oct", "Nov") ~ "Autumn"),
+    Season = factor(Season, levels = c("Winter, Spring", "Summer", "Fall"))
+  )
 
 
 
-### Question 11 ---------
+### Question 11 --------- ### SKIPPED, ERRORS ###
 
 # How many songs in the top 20 were major vs. minor? 
 # Create a new factor called "Quality" that is either Major or Minor
@@ -154,6 +250,14 @@ load("rs_data.RData")
 # Figure out which is the top-ranked song (from Rank_New) that used a minor key
 
 #ANSWER
+top20 <- top20 %>%
+  mutate(Quality = ifelse = str_detect(Key, "m"), "Minor", "Major"), 
+         Quality = factor(Quality, levels = c("Minor", "Major")))
 
+top20 %>%
+  count(Quality)
 
-
+top20 %>% 
+  filter(Quality == "Minor") %>%
+  arrange(Rank_New) %>% 
+  slice(1)
