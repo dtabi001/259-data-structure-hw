@@ -169,16 +169,17 @@ rs_joined %>%
 
 
 
-### Question 7 ----------
+### Question 7 ---------- ### SKIPPED ##
 
 # Use fct_count to see the number of songs within each decade
 # Then use fct_lump to limit decade to 3 levels (plus other), and
 # Do fct_count on the lumped factor with the prop argument to see the 
 # proportion of songs in each of the top three decades (vs. all the rest)
 
-#ANSWER ### SKIPPED ##
+#ANSWER 
 rs_joined %>%
-  fct_count(Decade)
+  fct_count(Decade) %>%
+  fct_lump() 
 
 
 
@@ -242,7 +243,7 @@ top20 <- top20 %>%
 
 
 
-### Question 11 --------- ### SKIPPED, ERRORS ###
+### Question 11 --------- ### ERRORS, SKIPPED ###
 
 # How many songs in the top 20 were major vs. minor? 
 # Create a new factor called "Quality" that is either Major or Minor
